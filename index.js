@@ -1,11 +1,13 @@
 const express = require('express');
 const { Pool } = require('pg');
+const dotenv= require('dotenv');
+dotenv.config();
 const app = express();
 app.use(express.json()); // Parse JSON bodies
 
 // Set up the PostgreSQL pool with connection string
 const pool = new Pool({
-  connectionString: 'postgresql://stackithq_vit_pardhusnc2004_db_user:eB9UqYsoOyJH9B9jHl2EEc5JP93UoGYc@dpg-crqq3eu8ii6s73bhlea0-a.oregon-postgres.render.com/stackithq_vit_pardhusnc2004_db',
+  connectionString: process.env.url,
   ssl: {
     rejectUnauthorized: false // Necessary for some cloud PostgreSQL services
   }
