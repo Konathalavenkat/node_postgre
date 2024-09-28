@@ -84,30 +84,49 @@ app.post('/update', async (req, res) => {
       const updatedRow = Number(row);
       const updatedColumn = Number(column) - 1; // Adjust for zero-based index
   
-      // Check if the row exists
-      const existingRow = await pool.query(
-        `SELECT * FROM sheets_data WHERE id = $1;`,
-        [updatedRow]
-      );
-  
-      // If the row does not exist, insert a new record
-      if (existingRow.rowCount === 0) {
-        await pool.query(
-          `INSERT INTO sheets_data (id, row_data) VALUES ($1, $2);`,
-          [updatedRow, JSON.stringify(Array(updatedColumn + 1).fill(''))] // Initialize row_data with empty values
+      const currentTime = new Date().toISOString();
+        const updateLastModified = await pool.query(
+            `UPDATE sheets_data
+             SET last_modified = $2
+             WHERE id = $1;`,
+            [-1, currentTime] // Set current time in the last_modified field for id = -1
         );
-      } 
-  
-      // Perform the update query using parameterized values
-      const updateResult = await pool.query(
-        `UPDATE sheets_data
-         SET row_data = jsonb_set(row_data::jsonb, '{${updatedColumn}}', $2::jsonb)
-         WHERE id = $1;`,
-        [updatedRow, JSON.stringify(newValue)] // Use JSON.stringify to ensure proper JSON format
+
+        const existingRowResult = await pool.query(
+          `SELECT row_data FROM sheets_data WHERE id = $1;`,
+          [updatedRow]
       );
+
+      let rowData = [];
+      if (existingRowResult.rowCount > 0) {
+          rowData = JSON.parse(existingRowResult.rows[0].row_data); // Parse the JSON data
+      }
+
+      // If the column index is greater than the current length, fill the array with empty strings
+      if (updatedColumn >= rowData.length) {
+          rowData = [...rowData, ...Array(updatedColumn - rowData.length + 1).fill('')]; // Fill up to the index
+      }
+
+      // Update the specific index with the new value
+      rowData[updatedColumn] = newValue;
+
+      // Perform the update query
+      const updateResult = await pool.query(
+          `UPDATE sheets_data
+           SET row_data = $2::jsonb
+           WHERE id = $1;`,
+          [updatedRow, JSON.stringify(rowData)] // Use JSON.stringify to ensure proper JSON format
+      );
+
+      const updatetime= await pool.query(
+        `UPDATE sheets_data
+         SET last_modified = $2
+         WHERE id = $1;`,
+        [updatedRow, currentTime]
+      )
   
       // Check if the update was successful
-      if (updateResult.rowCount === 0) {
+      if (updateResult.rowCount === 0 || updatetime.rowCount === 0) {
         return res.status(404).send({ message: 'No rows updated. Check the provided row or column.' });
       }
   
