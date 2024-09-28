@@ -92,6 +92,20 @@ app.post('/update', async (req, res) => {
             [-1, currentTime] // Set current time in the last_modified field for id = -1
         );
 
+        // Check if the row exists
+        const existingRow = await pool.query(
+          `SELECT * FROM sheets_data WHERE id = $1;`,
+          [updatedRow]
+        );
+        
+        // If the row does not exist, insert a new record
+        if (existingRow.rowCount === 0) {
+          await pool.query(
+            `INSERT INTO sheets_data (id, row_data) VALUES ($1, $2);`,
+            [updatedRow, JSON.stringify(Array(updatedColumn + 1).fill(''))] // Initialize row_data with empty values
+          );
+        } 
+
         const existingRowResult = await pool.query(
           `SELECT row_data FROM sheets_data WHERE id = $1;`,
           [updatedRow]
